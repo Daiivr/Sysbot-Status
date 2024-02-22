@@ -225,5 +225,134 @@ async def on_command_error(ctx, error):
         await ctx.send(f"An unknown error occurred: {error}")
 
 
+
+###############################################################################################################################################################################################
+# ________       _________    ___      ________      ___  __         ___    ___      _____ ______       _______       ________       ________       ________      ________      _______       #
+#|\   ____\     |\___   ___\ |\  \    |\   ____\    |\  \|\  \      |\  \  /  /|    |\   _ \  _   \    |\  ___ \     |\   ____\     |\   ____\     |\   __  \    |\   ____\    |\  ___ \      #
+#\ \  \___|_    \|___ \  \_| \ \  \   \ \  \___|    \ \  \/  /|_    \ \  \/  / /    \ \  \\\__\ \  \   \ \   __/|    \ \  \___|_    \ \  \___|_    \ \  \|\  \   \ \  \___|    \ \   __/|     #
+# \ \_____  \        \ \  \   \ \  \   \ \  \        \ \   ___  \    \ \    / /      \ \  \\|__| \  \   \ \  \_|/__   \ \_____  \    \ \_____  \    \ \   __  \   \ \  \  ___   \ \  \_|/__   #
+#  \|____|\  \        \ \  \   \ \  \   \ \  \____    \ \  \\ \  \    \/  /  /        \ \  \    \ \  \   \ \  \_|\ \   \|____|\  \    \|____|\  \    \ \  \ \  \   \ \  \|\  \   \ \  \_|\ \  #
+#    ____\_\  \        \ \__\   \ \__\   \ \_______\   \ \__\\ \__\ __/  / /           \ \__\    \ \__\   \ \_______\    ____\_\  \     ____\_\  \    \ \__\ \__\   \ \_______\   \ \_______\ #
+#   |\_________\        \|__|    \|__|    \|_______|    \|__| \|__||\___/ /             \|__|     \|__|    \|_______|   |\_________\   |\_________\    \|__|\|__|    \|_______|    \|_______| #
+#   \|_________|                                                   \|___|/                                              \|_________|   \|_________|                                           #
+###############################################################################################################################################################################################                                                                                                                                                                                    
+                                                                                                                                                                                                    
+sticky_messages_file = 'sticky_messages.json'
+debounce_timers = {}  # Stores debouncing timers for channels
+
+# Load sticky messages from file
+def load_sticky_messages():
+    try:
+        with open(sticky_messages_file, 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return {}
+
+# Save sticky messages to file
+def save_sticky_messages(sticky_messages):
+    with open(sticky_messages_file, 'w') as file:
+        json.dump(sticky_messages, file, indent=4)
+
+# Initial load of sticky messages
+sticky_messages = load_sticky_messages()
+
+async def handle_sticky_message(channel_id, message_content):
+    # Wait a short period to debounce. Adjust the sleep duration as needed.
+    await asyncio.sleep(2)  # 2 seconds debounce time
+
+    # Check if a new message has been sent in the meantime
+    if debounce_timers[channel_id].is_set():
+        return  # A new message was sent; this task is cancelled
+
+    channel = bot.get_channel(int(channel_id))
+    if channel:
+        sticky_info = sticky_messages[channel_id]
+        if sticky_info['message_id']:
+            try:
+                msg_to_delete = await channel.fetch_message(sticky_info['message_id'])
+                await msg_to_delete.delete()
+            except discord.NotFound:
+                pass  # Message might already be deleted
+
+        new_sticky_msg = await channel.send(message_content)
+        sticky_messages[channel_id]['message_id'] = new_sticky_msg.id
+        save_sticky_messages(sticky_messages)
+
+@bot.event
+async def on_message(message):
+    await bot.process_commands(message)
+    if message.author == bot.user or message.content.startswith(bot.command_prefix):
+        return
+
+    channel_id = str(message.channel.id)
+    if channel_id in sticky_messages:
+        # Reset the event for this channel
+        if channel_id not in debounce_timers or not debounce_timers[channel_id].is_set():
+            debounce_timers[channel_id] = asyncio.Event()
+            asyncio.create_task(handle_sticky_message(channel_id, sticky_messages[channel_id]['content']))
+        debounce_timers[channel_id].set()
+        await asyncio.sleep(1)  # Wait a bit before allowing another message to reset the timer
+        debounce_timers[channel_id].clear()
+
+@bot.command(name='setsticky')
+@commands.has_permissions(manage_messages=True)
+async def set_sticky(ctx, *, message: str):
+    channel_id = str(ctx.channel.id)
+    # Check if there's an existing sticky message and delete it
+    if channel_id in sticky_messages and 'message_id' in sticky_messages[channel_id] and sticky_messages[channel_id]['message_id']:
+        try:
+            existing_message = await ctx.channel.fetch_message(sticky_messages[channel_id]['message_id'])
+            await existing_message.delete()
+        except discord.NotFound:
+            pass  # If the message was not found, ignore
+
+    # Post the new sticky message
+    new_sticky_msg = await ctx.send(message)
+    
+    # Store the new sticky message's content and ID
+    sticky_messages[channel_id] = {'content': message, 'message_id': new_sticky_msg.id}
+    save_sticky_messages(sticky_messages)
+
+    # Optionally, delete the command message to keep the channel clean
+    await ctx.message.delete()
+
+@bot.command(name='disablesticky')
+@commands.has_permissions(manage_messages=True)
+async def disable_sticky(ctx):
+    channel_id = str(ctx.channel.id)
+    if channel_id in sticky_messages:
+        # Disable the sticky message by removing its content but keeping the record
+        sticky_messages[channel_id]['content'] = ""
+        save_sticky_messages(sticky_messages)
+        await ctx.send("Sticky message has been disabled for this channel.")
+    else:
+        await ctx.send("No sticky message is set for this channel.")
+
+    # Optionally, delete the command message to keep the channel clean
+    await ctx.message.delete()
+
+@bot.command(name='deletesticky')
+@commands.has_permissions(manage_messages=True)
+async def delete_sticky(ctx):
+    channel_id = str(ctx.channel.id)
+    if channel_id in sticky_messages:
+        sticky_info = sticky_messages[channel_id]
+        # Delete the existing sticky message if it exists
+        if sticky_info['message_id']:
+            try:
+                msg_to_delete = await ctx.channel.fetch_message(sticky_info['message_id'])
+                await msg_to_delete.delete()
+            except discord.NotFound:
+                pass  # If the message was not found, it might have already been deleted
+        # Remove the sticky message setup from this channel
+        del sticky_messages[channel_id]
+        save_sticky_messages(sticky_messages)
+        await ctx.send("Sticky message has been deleted and disabled for this channel.")
+    else:
+        await ctx.send("No sticky message is set for this channel.")
+
+    # Optionally, delete the command message to keep the channel clean
+    await ctx.message.delete()
+
 # Replace TOKEN with your actual bot token
 bot.run('MTE0NTEyNDgzMjQ5NzkwNTcyNA.GZsiSz.f9yKSFcydfMdmS30-7zZnfkky8WUEsCQ5LuxSI')
