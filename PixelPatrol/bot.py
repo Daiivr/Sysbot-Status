@@ -81,6 +81,30 @@ async def logchannel(ctx, log_channel: discord.TextChannel, update_channel: disc
     save_to_json(guild_channels, "./PixelPatrol/guild_channels.json")
     await ctx.send(f"Monitoring {log_channel.mention}. Updates will be sent to {update_channel.mention}")
 
+# Remove the log channel from being monitored
+@bot.command(aliases=['rlc'])
+async def remove_logchannel(ctx, log_channel: discord.TextChannel):
+    global guild_channels
+    guild_id = str(ctx.guild.id)
+    
+    # Check if the guild is in the guild_channels dictionary
+    if guild_id in guild_channels:
+        # Check if the channel to be removed is being monitored
+        if str(log_channel.id) in guild_channels[guild_id]:
+            # Remove the channel from the dictionary
+            del guild_channels[guild_id][str(log_channel.id)]
+            
+            # Save the updated dictionary to the JSON file
+            save_to_json(guild_channels, "./PixelPatrol/guild_channels.json")
+            
+            # Inform the user of the successful removal
+            await ctx.send(f"{log_channel.mention} has been removed from monitoring.")
+        else:
+            # Inform the user if the channel was not being monitored
+            await ctx.send(f"{log_channel.mention} is not currently being monitored.")
+    else:
+        await ctx.send("There are no channels being monitored for this guild.")
+        
 @bot.event
 async def on_message(message):
     await bot.process_commands(message)
@@ -114,7 +138,9 @@ async def on_message(message):
                 await update_channel.send(embed=embed, file=discord.File("./PixelPatrol/offline.gif"))
                 new_name = f"❌{update_channel.name.replace('❌', '').replace('✅', '')}"
                 await update_channel.edit(name=new_name)
-            
+                permissions = discord.PermissionOverwrite(send_messages=False)
+                await update_channel.set_permissions(message.guild.default_role, overwrite=permissions)
+                print(f"Set channel {update_channel.name} permissions to OFFLINE (send_messages=False)")
 
         elif re.search(r'\bidentified as\b', message.content, re.IGNORECASE) or re.search(r'added logging to discord channel', message.content, re.IGNORECASE) or re.search(r'dump:', message.content, re.IGNORECASE):
             if last_known_status.get(channel_id) != "online":
@@ -128,7 +154,9 @@ async def on_message(message):
                 await update_channel.send(embed=embed, file=discord.File("./PixelPatrol/online.gif"))
                 new_name = f"✅{update_channel.name.replace('❌', '').replace('✅', '')}"
                 await update_channel.edit(name=new_name)
-                
+                permissions = discord.PermissionOverwrite(send_messages=True)
+                await update_channel.set_permissions(message.guild.default_role, overwrite=permissions)
+                print(f"Set channel {update_channel.name} permissions to ONLINE (send_messages=True)")           
 
 
         # Update last_known_status and save to JSON only when status changes from "online" to "offline" or vice versa
@@ -355,4 +383,4 @@ async def delete_sticky(ctx):
     await ctx.message.delete()
 
 # Replace TOKEN with your actual bot token
-bot.run('MTE0NTEyNDgzMjQ5NzkwNTcyNA.GZsiSz.f9yKSFcydfMdmS30-7zZnfkky8WUEsCQ5LuxSI')
+bot.run('TOKEN')

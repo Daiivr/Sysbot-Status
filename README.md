@@ -23,6 +23,13 @@ Input the command !logchannel followed by the bot's log channel and then the tra
 
 Example:  `!logchannel #Sv-TradeBot-Logs #Sv-TradeBot`
 
+**Remove Channels**
+
+If you need to remove a channel from the list, simply run the command below
+
+`!rlc #Sv-TradeBot-Logs #Sv-TradeBot` and replace the channels with your own that you have added in the command.
+
+
 
 # Needed Permissions
 
@@ -40,6 +47,14 @@ For TradeBot Channel, it needs the following:
 ![image](https://github.com/bdawg1989/Sysbot-Status/assets/80122551/b1b1dff4-79ab-4639-b53d-689fc28ca663)
 
 ![image](https://github.com/bdawg1989/Sysbot-Status/assets/80122551/09f7d950-442a-4e4c-8d39-bff75e4a538d)
+
+**Important** - This bot will set the @everyone permission to deny anyone texting in the channel when it's closed.  And it will set it to allow @everyone when opened.
+If you do not want it to change those permissions, set Manage Permissions to OFF for this bot.
+
+![image](https://github.com/bdawg1989/Sysbot-Status/assets/80122551/514817ad-8d3b-4e00-8235-90613757adc7)
+
+Any custom role you have set up for that channel **can** override the @everyone permission.  So make sure your custom roles **Send Messages** is set to **nuetral** for them to not be able to write in the channel when it's closed.
+
 
 For the Log Channel:
 
@@ -65,7 +80,7 @@ Example screenshots below:
 
 # Important Links
 Looking for a place to host your Bot?
-[PebbleHost - $3/month](https://pebblehost.com/bot-hosting) 
+[PebbleHost - $3/month](https://billing.pebblehost.com/aff.php?aff=2873)
 
 Want to use my bot?
 [Invite Link](https://discord.com/api/oauth2/authorize?client_id=1145124832497905724&permissions=0&scope=bot)
